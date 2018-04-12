@@ -4,25 +4,23 @@
   "description": "\"Utility module for managing state changes in js frameworks such as fluxible or redux\"",
   "main": "index.js",
   "scripts": {
-    "test": "mocha --reporter spec __tests__",
-    "cover": "node_modules/istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha -- -R spec __tests__/*"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/rrichardsonv/sovereignty.git"
   },
+  "keywords": [
+    "utilities",
+    "state",
+    "immutability"
+  ],
   "author": "Robert Richardson V <rrichardsonv+npm@gmail.com> (https://github.com/rrichardsonv/)",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/rrichardsonv/sovereignty/issues"
   },
   "homepage": "https://github.com/rrichardsonv/sovereignty#readme",
-  "devDependencies": {
-    "chai": "^4.1.2",
-    "coveralls": "^3.0.0",
-    "istanbul": "^0.4.5",
-    "mocha": "^5.0.5",
-    "typescript": "^2.8.1"
-  },
+  "devDependencies": {},
   "dependencies": {}
 }
