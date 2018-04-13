@@ -14,7 +14,7 @@
 })(this, function(){
   polyfills();
   var hasNativeSetsAvailable = false;
-  hasNativeSetsAvailable = (function(){
+  hasNativeSetsAvailable = (function () {
     try {
       var testSet = new Set(['test']);
       testSet.has('test');
@@ -25,63 +25,106 @@
   })();
 
   /**
-   * Create a SovereignState object
+   * SovereignState.constructor
    * 
    * @param {(Object)} initialState
    * @return {(Object)} SovereignState.prototype
    */
-  function SovereignState(initialState) {
+
+  function SovereignState(initialState, unsafe = false) {
     this.keyLookup = buildKeyLookup(initialState);
     this.typeLookup = buildTypeLookup(initialState);
     this.initialState = Object.freeze(initialState);
-  };
-  
+    this.validateOnUpdate = !unsafe;
+  }
+
+  SovereignState.prototype.unsafe
+
   /**
    * Create from Object's enumeral keys a validation Set or Object(with keys: true)
    * 
    * @param {(Object)} objectWithKeys
    * @return {(Object|Set)} 
    */
-  function buildKeyLookup(objectWithKeys){
+  function buildKeyLookup(objectWithKeys) {
     var keys = Object.keys(objectWithKeys);
 
-    if(hasNativeSetsAvailable){
+    if (hasNativeSetsAvailable) {
       return new Set(keys);
     }
-
     return Object.freeze(
-        keys.reduce(function(object, key){
-        object[key] = true;
-        return object;
-      }, {})
+      objectMap(objectWithKeys, function (key) {
+        return { [key]: true };
+      })
     );
   }
-    /**
-   * Create new frozen Object from Object's enumeral keys and values = value.constructor.name.
-   * For null or undefined values will default to "any"
-   * 
-   * @param {(Object)} sourceObject
-   * @return {(Object)} { [key]: value.constructor.name }
-   */
+  /**
+ * Create new frozen Object from Object's enumeral keys and values constructor names.
+ * For null or undefined values will default to "any"
+ * 
+ * @param {(Object)} sourceObject
+ * @return {(Object)} { [key]: value.constructor.name }
+ */
   function buildTypeLookup(sourceObject) {
-    var keys = Object.keys(objectWithKeys);
-    var length = keys.length;
+    return Object.freeze(
+      objectMap(
+        sourceObject,
+        function (key, initialObject) {
+          var value = initialObject[key];
+          var updateObj = {};
+          var valueType = 'any';
+
+          if (value !== undefined && value !== null) {
+            valueType = value.constructor.name;
+          }
+          updateObj[key] = valueType;
+          return updateObj;
+        }
+      )
+    );
+  }
+
+  /**
+   * Object map/filter
+   * @param {(Object)} obj the object over which to map
+   * @param {(Function)} iterateeFn (key, obj) =>
+   * @return {void}
+   */
+  function objectForEach(obj, iterateeFn) {
+    var keys = Object.keys(obj);
+    var length = keys.length - 1;
     var index = -1;
-    var lookup = {};
 
-    while(index++ < length){
-      var currentKey = keys[index];
-      var value = sourceObject[currentKey];
-      var valueType = 'any';
-
-      if(value !== undefined && value !== null){
-        valueType = value.constructor.name;
-      }
-
-      lookup[currentKey] = valueType;
+    while (index++ < length) {
+      var key = keys[index];
+      iterateeFn(key, obj);
     }
+  }
 
-    return Object.freeze(lookup);
+  /**
+   * Object map/filter
+   * @param {(Object)} obj the object over which to map
+   * @param {(Function)} transformFn (key, obj) => { Object - to merge | false - to skip }
+   * @return {(Object)}
+   */
+  function objectMap(obj, transformFn) {
+    var result = {};
+    var iterateeFn = function (key, obj) {
+      Object.assign(result, transformFn(key, obj));
+    };
+    objectForEach(obj, iterateeFn);
+    return result;
+  }
+
+  function validateForEach(objectToVerify, validationFn, msgFn) {
+    return objectForEach(
+      objectToVerify,
+      function (key, obj) {
+        if (!validationFn(key, obj)) {
+          throw new TypeError(msgFn(key, obj));
+        }
+      }
+    ) || true;
   }
 
   /**
@@ -102,7 +145,7 @@
    */
 
   function hasKey(validKeys, newKey) {
-    if (!validKeys || newKey) {
+    if (!validKeys || !newKey) {
       return;
     }
     if (hasNativeSetsAvailable) {
@@ -116,36 +159,83 @@
    * @param {(Object)} validValues A set or object with string keys and boolean values
    * @param {(string)} key A string key
    * @param {(*)} value The value to check
-   * @param {(boolean)} strict flag for whether to show warning messages 
    * @returns {(boolean)}
    */
 
-  function matchesValueType(validValues, key, value, showWarnings = false) {
-    if(!key) {
-      showWarnings && console.warn('Key undefined at matchesValueType');
+  function matchesValueType(validValues, key, object) {
+    if (!key || !validValues || !object) {
       return false;
     }
-
-    if (!validValues) {
-      showWarnings && console.warn('Validation object undefined at matchesValueType, returning true. It is advised to use an unsafe method if you do not want to use validations');
-      return false;
-    }
-
     var validValue = validValues[key];
+    var valueToVerify = object[key];
 
-    if(!validValue) {
-      showWarnings && console.warn('Validation object does not have key ' + key + '. Update the validation object or use an unsafe method');
+    if (!validValue) {
       return false;
     }
 
-    if(validValue === 'any') {
+    if (validValue === 'any') {
       return true;
     }
 
-    if(validValue === value.constructor.name) {
+    if (!valueToVerify) {
+      return false;
+    }
+
+    if (validValue === valueToVerify.constructor.name) {
       return true;
     }
   }
+
+  SovereignState.prototype.hasKey = function (key) {
+    return hasKey.call(null, this.keyLookup, key);
+  };
+
+  SovereignState.prototype.matchesValueType = function (key, object) {
+    return matchesValueType.call(null, this.typeLookup, key, object);
+  };
+
+  SovereignState.prototype.validateKeys = function (newState) {
+    return validateForEach(newState, this.hasKey.bind(this), function (key) {
+      return 'Key ' + key + ' is not present in state. Check the initial state object.';
+    });
+  };
+
+  SovereignState.prototype.validateValueTypes = function (newState) {
+    return validateForEach(newState, this.matchesValueType.bind(this), function (key, object) {
+      var displayText = !object[key] ? object[key] : object[key] + ' of type ' + object[key].constructor.name;
+      return 'Value ' + displayText + ' does not match validation type for key ' + key + '. Check the initial state object.';
+    });
+  };
+
+  SovereignState.prototype.update = function (currentState, ...newStates) {
+
+    if (!currentState) {
+      throw new TypeError('value ' + currentState + ' is not a valid arguement for SovereignState.prototype.update().');
+    }
+
+    if (this.validateOnUpdate) {
+      newStates
+        .forEach(function (updateObj) {
+          this.validateValueTypes(updateObj);
+          this.validateKeys(updateObj);
+        }.bind(this));
+    }
+
+    return baseAssign(currentState, ...newStates);
+  };
+
+  SovereignState.prototype.mixedUpdate = function (currenState, ...newStates) {
+    return this.update(
+      newStates.filter(function (updateObj) {
+        return updateObject ? true : false;
+      })
+    );
+  };
+
+  Object.defineProperty(SovereignState.prototype, 'UNSAFE', {
+    get() { return new SovereignState(this.initialState, true) }
+  });
+
 
   // POLYFILLS
   function polyfills(){
@@ -182,4 +272,8 @@
       });
     }
   }
+
+  //-------------------------------------------------/
+
+  return SovereignState;
 })
