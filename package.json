@@ -1,6 +1,6 @@
 {
   "name": "sovereignty",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Utility module for managing state changes in js frameworks such as fluxible or redux",
   "main": "index.js",
   "scripts": {
