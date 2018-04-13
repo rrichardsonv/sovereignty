@@ -177,7 +177,7 @@
       return true;
     }
 
-    if (!valueToVerify) {
+    if (valueToVerify === undefined || valueToVerify === null) {
       return false;
     }
 
@@ -235,7 +235,6 @@
   Object.defineProperty(SovereignState.prototype, 'UNSAFE', {
     get() { return new SovereignState(this.initialState, true) }
   });
-
 
   // POLYFILLS
   function polyfills(){
