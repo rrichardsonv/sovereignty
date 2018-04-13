@@ -1,7 +1,9 @@
 var SovereignState = require('./sovereignty');
+var failed = 0;
 
 function test(description, fn){
   if(!fn()){
+    failed++;
     console.error(description + ' x ');
     return;
   };
@@ -144,3 +146,7 @@ test('  -  falsey values for all other situations do throw', function () {
     return stateUtils.validateValueTypes({ foo: undefined });
   });
 });
+
+if(failed !== 0) {
+  process.exit(1);
+}
